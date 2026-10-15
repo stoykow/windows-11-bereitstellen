@@ -1,0 +1,10 @@
+# Installationsabbilder und generierte Dateien
+*.iso
+*.wim
+*.esd
+*.swm
+*.clg
+*.log
+
+# Lokale Antwortdateien mit persönlichen Einstellungen
+autounattend.local.xml

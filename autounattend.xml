@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend">
+    <!--
+        Basis für deutschsprachiges Windows 11 Pro 26H2 (amd64).
+        Für ältere Windows-11-Versionen nur mit versionsgerechter Prüfung verwenden.
+        Vor dem Einsatz mit dem konkreten Zielimage in Windows SIM validieren
+        und die Installation in einer virtuellen Maschine prüfen.
+        Diese Datei enthält keine Benutzerkonten, Passwörter oder AutoLogon-Einstellungen.
+        Für eine automatische lokale Kontoanlage muss unter Microsoft-Windows-Shell-Setup
+        zusätzlich UserAccounts/LocalAccounts ergänzt werden (siehe README, Abschnitt 11.7).
+        Für Administratorrechte ist der sprachneutrale Gruppenname Administrators zu verwenden.
+        Ohne ergänzte Kontoanlage können Kontodialoge während OOBE weiterhin erscheinen.
+    -->
     <!-- Setup-Phase (Fenster "Windows installieren") -->
     <settings pass="windowsPE">
         <component name="Microsoft-Windows-International-Core-WinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
@@ -21,6 +32,18 @@
             </UserData>
         </component>
     </settings>
+    <!-- Das Skript aus README, Abschnitt 7, muss vorab im Windows-Image liegen. -->
+    <settings pass="specialize">
+        <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <RunSynchronous>
+                <RunSynchronousCommand wcm:action="add">
+                    <Description>Windows-Einstellungen im Systemkontext anwenden</Description>
+                    <Order>1</Order>
+                    <Path>cmd /c "%WINDIR%\Setup\Scripts\Configure-Windows.cmd"</Path>
+                </RunSynchronousCommand>
+            </RunSynchronous>
+        </component>
+    </settings>
     <!-- OOBE-Phase (Land, Konto, Datenschutz usw.) -->
     <settings pass="oobeSystem">
         <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
@@ -39,5 +62,4 @@
             </OOBE>
         </component>
     </settings>
-    <cpi:offlineImage cpi:source="wim:c:/iso_source/sources/install.wim#Windows 11 Pro" xmlns:cpi="urn:schemas-microsoft-com:cpi" />
 </unattend>
