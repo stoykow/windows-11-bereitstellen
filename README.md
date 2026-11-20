@@ -352,12 +352,14 @@ Quellen: [Microsoft, TurnOffWindowsCopilot](https://learn.microsoft.com/en-us/wi
 
 Das mitgelieferte [Configure-Windows.cmd](scripts/Configure-Windows.cmd) wird im Konfigurationsdurchlauf **specialize** über die Antwortdatei aufgerufen. Es läuft dabei im Systemkontext. Dieser Weg vermeidet die Einschränkung von `SetupComplete.cmd`: Windows Setup führt SetupComplete bei einem OEM-Produktschlüssel unter anderem auf Pro nicht aus. Enterprise und Windows Server sind von dieser konkreten Einschränkung ausgenommen. Quelle: [Microsoft, Add a custom script to Windows Setup](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/add-a-custom-script-to-windows-setup).
 
-Den folgenden Kopierbefehl **aus dem Projektverzeichnis** ausführen, während das Image unter `C:\mount` bereitgestellt ist:
+Die folgenden Befehle **in Windows PowerShell 5.1 als Administrator** aus dem Projektverzeichnis ausführen, während das Image unter `C:\mount` mit Schreibzugriff bereitgestellt ist.
 
 ```powershell
-New-Item -Path C:\mount\Windows\Setup\Scripts -ItemType Directory -Force | Out-Null
+New-Item -Path C:\mount\Windows\Setup\Scripts -ItemType Directory -Force -ErrorAction Stop | Out-Null
 Copy-Item -LiteralPath .\scripts\Configure-Windows.cmd -Destination C:\mount\Windows\Setup\Scripts\Configure-Windows.cmd -Force -ErrorAction Stop
 ```
+
+Falls der Zugriff auch in der als Administrator geöffneten PowerShell verweigert wird, mit `dism /Get-MountedWimInfo` prüfen, ob `C:\mount` als gültiger Mount mit Lese- und Schreibzugriff aufgeführt ist.
 
 Das Skript setzt unter anderem die dokumentierte Werbe-ID-Richtlinie `DisabledByGroupPolicy`, reduziert Diagnose- und Feedbackeinstellungen und deaktiviert den Start vorhandener Diagnosedienste. Bereits laufende Dienste werden dabei nicht gestoppt. Es schreibt sein Ergebnis nach `%WINDIR%\Setup\Scripts\Configure-Windows.log`.
 
@@ -389,10 +391,15 @@ Die Antwortdatei partitioniert keine Datenträger und automatisiert nicht die ge
 
 ### Mit Änderungen speichern
 
+PowerShell als Administrator öffnen und in allen Terminals aus `C:\mount` und seinen Unterordnern wechseln. Explorer-Fenster und andere Programme schließen, die Dateien aus dem eingebundenen Image geöffnet haben.
+
 ```powershell
+Set-Location -LiteralPath C:\
 dism /Unmount-Wim /MountDir:C:\mount /Commit
 if ($LASTEXITCODE -ne 0) { throw 'Image konnte nicht mit Änderungen ausgehängt werden.' }
 ```
+
+Bei `0xc1420117` kann die WIM bereits gespeichert sein, obwohl DISM den Mount-Ordner nicht vollständig freigeben konnte. Offene Zugriffe beenden und mit `dism /Get-MountedWimInfo` den Status prüfen. Wenn DISM bei einem erneuten Versuch `0xc142011d` meldet, zuerst die erwarteten Änderungen direkt in der gespeicherten WIM bestätigen. Erst danach den verbleibenden Mount mit `/Discard` aushängen.
 
 ### Alternative: ohne Speichern verwerfen
 
@@ -439,13 +446,15 @@ if ($AdkProcess.ExitCode -notin @(0, 3010)) { throw "ADK-Installation fehlgeschl
 if ($AdkProcess.ExitCode -eq 3010) { Write-Host 'Neustart erforderlich.' }
 ```
 
+Bei Exitcode `2008` das neueste Protokoll unter `$env:TEMP\ADK` prüfen. Wenn dort `MSI replacement servicing is not supported` steht und eine ältere ADK-Version erkannt wurde, die ältere Version über **Installierte Apps** deinstallieren und das neue Setup erneut ausführen.
+
 Anschließend gegebenenfalls den ausdrücklich passenden Wartungspatch nach Microsoft-Anleitung installieren. Keine KB aus einer anderen ADK-Versionsreihe erzwingen.
 
 ### Installationspfade prüfen
 
 ```powershell
 Test-Path 'C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\amd64\Oscdimg\oscdimg.exe'
-Test-Path 'C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\WSIM\imgmgr.exe'
+Test-Path 'C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\WSIM\amd64\imgmgr.exe'
 ```
 
 Für Abschnitt 12 ist `oscdimg.exe` nötig. Windows SIM wird in Abschnitt 11 zur Prüfung der Antwortdatei verwendet.
@@ -478,6 +487,8 @@ Nach der Installation des ADK befindet sich das Tool hier:
 ![SIM](bilder/sim.png)
 
 ### 11.2 Windows Image laden
+
+Vor dem Öffnen der WIM mit `dism /Get-MountedWimInfo` in einer PowerShell mit Administratorrechten prüfen, ob `install.wim` noch als eingebunden aufgeführt ist. Falls ja, zuerst das Aushängen nach Abschnitt 9 abschließen. Ein verbliebener Mount kann die Katalogerstellung mit `0xc1420127` blockieren.
 
 1. Im linken Bereich unter **Windows Image** auf „Windows Image oder Katalogdatei auswählen“ klicken
 2. Die Datei auswählen: `C:\iso_source\sources\install.wim`
